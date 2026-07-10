@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="918px" height="600px"
+     viewBox="0 0 918 600" font-size="16px">
+<style>
+@font-face {
+  font-family: 'sfmono';
+  src: local('SF Mono'), local('SFMono-Regular'), local('SFMonoNerdFont-Regular'),
+       local('SFMono Nerd Font');
+}
+@font-face {
+  font-family: 'dejavu';
+  src: url(data:font/woff2;base64,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) format('woff2');
+  size-adjust: 102.68%;
+}
+text { font-family: 'sfmono', 'dejavu', monospace; }
+text, tspan { white-space: pre; }
+.fg { fill: #1c1c1c; }
+.cyan { fill: #0f7fa0; }
+.dim { fill: #8a8a8a; }
+</style>
+<rect width="918" height="600" rx="10" fill="#ffffff"
+      stroke="#d5d5d5"/>
+<path d="M0 36h918M10 0h898a10 10 0 0 1 10 10v26H0V10a10 10 0 0 1 10-10z"
+      fill="#ececec" stroke="#d5d5d5"/>
+<circle cx="22" cy="18.0" r="6" fill="#ff5f57"/><circle cx="42" cy="18.0" r="6" fill="#febc2e"/><circle cx="62" cy="18.0" r="6" fill="#28c840"/>
+<text x="459.0" y="22.0" text-anchor="middle" font-size="12px"
+      class="dim">aaangel@laaabs — aaangelmartin — zsh</text>
+<rect x="330.61" y="566" width="9.89" height="16"
+      fill="#0f7fa0"/>
+<text>
+<tspan x="24.00" y="60" class="cyan">aaangel</tspan><tspan class="fg">@</tspan><tspan class="cyan">laaabs</tspan><tspan class="fg"> aaangelmartin </tspan><tspan class="cyan">%</tspan><tspan class="fg"> neofetch</tspan>
+<tspan x="24.00" y="100" class="cyan">  __ _  __ _  __ _   </tspan>
+<tspan x="24.00" y="120" class="cyan"> / _` |/ _` |/ _` |  </tspan>
+<tspan x="24.00" y="140" class="cyan">| (_| | (_| | (_| |_ </tspan>
+<tspan x="24.00" y="160" class="cyan"> \__,_|\__,_|\__,_(_)</tspan>
+<tspan x="261.38" y="100" class="cyan">aaangel</tspan><tspan class="fg">@</tspan><tspan class="cyan">laaabs</tspan>
+<tspan x="261.38" y="120" class="fg">----------------------------------------------------------------</tspan>
+<tspan x="261.38" y="140" class="cyan">OS</tspan><tspan class="cyan">:</tspan><tspan class="fg"> macOS 26.0.1 arm64</tspan>
+<tspan x="261.38" y="160" class="cyan">Host</tspan><tspan class="cyan">:</tspan><tspan class="fg"> laaabs.</tspan>
+<tspan x="261.38" y="180" class="cyan">Kernel</tspan><tspan class="cyan">:</tspan><tspan class="fg"> computer science @ uc3m</tspan>
+<tspan x="261.38" y="200" class="cyan">Uptime</tspan><tspan class="cyan">:</tspan><tspan class="fg"> 19 years, 1 month, 9 days</tspan>
+<tspan x="261.38" y="220" class="cyan">Shell</tspan><tspan class="cyan">:</tspan><tspan class="fg"> zsh 5.9</tspan>
+<tspan x="261.38" y="240" class="cyan">Terminal</tspan><tspan class="cyan">:</tspan><tspan class="fg"> Apple_Terminal</tspan>
+<tspan x="261.38" y="260" class="cyan">Terminal Font</tspan><tspan class="cyan">:</tspan><tspan class="fg"> SF Mono Nerd Font</tspan>
+<tspan x="261.38" y="280" class="cyan">CPU</tspan><tspan class="cyan">:</tspan><tspan class="fg"> Apple M4 Pro</tspan>
+<tspan x="261.38" y="300" class="cyan">GPU</tspan><tspan class="cyan">:</tspan><tspan class="fg"> Apple M4 Pro</tspan>
+<tspan x="261.38" y="340" class="cyan">Languages.Programming</tspan><tspan class="cyan">:</tspan><tspan class="fg"> TypeScript, Python, Go, JavaScript</tspan>
+<tspan x="261.38" y="360" class="cyan">Languages.Real</tspan><tspan class="cyan">:</tspan><tspan class="fg"> Spanish, English</tspan>
+<tspan x="261.38" y="400" class="cyan">Location</tspan><tspan class="cyan">:</tspan><tspan class="fg"> Madrid, Spain</tspan>
+<tspan x="261.38" y="420" class="cyan">Web</tspan><tspan class="cyan">:</tspan><tspan class="fg"> aaangelmartin.com</tspan>
+<tspan x="261.38" y="440" class="cyan">Twitter</tspan><tspan class="cyan">:</tspan><tspan class="fg"> @aaangelmartin_</tspan>
+<tspan x="261.38" y="460" class="cyan">Email</tspan><tspan class="cyan">:</tspan><tspan class="fg"> hello@aaangelmartin.com</tspan>
+<tspan x="261.38" y="500" class="cyan">Repos</tspan><tspan class="cyan">:</tspan><tspan class="fg"> 50</tspan>
+<tspan x="261.38" y="520" class="cyan">Commits</tspan><tspan class="cyan">:</tspan><tspan class="fg"> 1,904</tspan>
+<tspan x="261.38" y="540" class="cyan">Lines of Code</tspan><tspan class="cyan">:</tspan><tspan class="fg"> 2,778,866</tspan><tspan class="dim">  (4,293,287++, 1,514,421--)</tspan>
+<tspan x="24.00" y="580" class="cyan">aaangel</tspan><tspan class="fg">@</tspan><tspan class="cyan">laaabs</tspan><tspan class="fg"> aaangelmartin </tspan><tspan class="cyan">%</tspan>
+</text>
+</svg>
