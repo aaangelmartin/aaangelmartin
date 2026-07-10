@@ -1,0 +1,50 @@
+name: build readme
+
+on:
+  schedule:
+    - cron: "0 4 * * *"   # daily at 04:00 UTC
+  push:
+    branches: [main]
+    paths:
+      - build.py
+      - .github/workflows/build.yaml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-readme
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Render SVGs
+        env:
+          # PAT with repo + read:org, so private and org repos are counted.
+          # The built-in GITHUB_TOKEN cannot see them.
+          ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        run: python build.py
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dark_mode.svg light_mode.svg cache/stats.json
+          if git diff --cached --quiet; then
+            echo "no changes"
+          else
+            git commit -m "chore: refresh terminal stats"
+            git push
+          fi
