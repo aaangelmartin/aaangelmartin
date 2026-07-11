@@ -2,7 +2,7 @@ name: build readme
 
 on:
   schedule:
-    - cron: "0 4 * * *"   # daily at 04:00 UTC
+    - cron: "0 0 * * *"   # daily at 00:00 UTC
   push:
     branches: [main]
     paths:
@@ -32,8 +32,8 @@ jobs:
 
       - name: Render SVGs
         env:
-          # PAT with repo + read:org, so private and org repos are counted.
-          # The built-in GITHUB_TOKEN cannot see them.
+          # Personal access token that can read private repos, so private and
+          # org work is counted; the built-in GITHUB_TOKEN cannot see it.
           ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
         run: python build.py
 

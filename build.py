@@ -1,7 +1,8 @@
 """Render my GitHub profile README as a screenshot of my own terminal.
 
-Fetches public repo/commit/LOC counts from the GitHub GraphQL API and writes
-dark_mode.svg and light_mode.svg. Run daily from .github/workflows/build.yaml.
+Pulls repo, contribution and lines-of-code figures (public and private) from
+the GitHub API and writes dark_mode.svg and light_mode.svg. Run daily from
+.github/workflows/build.yaml.
 
 Colours, prompt, ASCII art and neofetch field order mirror my real setup:
 ~/.config/neofetch/config.conf and the "aaa" Terminal.app profile.
@@ -38,10 +39,10 @@ FONT_SIZE = 16
 CHAR_W = FONT_SIZE * SF_ADVANCE
 LINE_H = 20
 PAD_X = 24
-TITLEBAR_H = 36
-FIRST_BASELINE = TITLEBAR_H + 24
-INFO_COL = 24  # neofetch offsets the info block 24 columns from the art
-UNDERLINE = 64  # what my terminal actually prints
+PAD_Y = 26
+FIRST_BASELINE = PAD_Y + FONT_SIZE
+INFO_COL = 24    # neofetch offsets the info block 24 columns from the art
+TERM_COLS = 80   # a standard terminal is exactly 80 columns wide
 
 ASCII_ART = [
     r"  __ _  __ _  __ _   ",
@@ -50,17 +51,16 @@ ASCII_ART = [
     r" \__,_|\__,_|\__,_(_)",
 ]
 
-PROMPT = [("aaangel", "cyan"), ("@", "fg"), ("laaabs", "cyan"),
-          (" aaangelmartin ", "fg"), ("%", "cyan")]
-
 THEMES = {
     "dark_mode.svg": {
-        "bg": "#171717", "titlebar": "#232323", "border": "#2e2e2e",
-        "fg": "#ffffff", "cyan": "#00b5e2", "dim": "#6e6e6e",
+        "bg": "#0a0a0a", "border": "#1f1f1f",
+        "fg": "#ffffff", "cyan": "#00b5e2",
+        "add": "#3fb950", "del": "#f85149",
     },
     "light_mode.svg": {
-        "bg": "#ffffff", "titlebar": "#ececec", "border": "#d5d5d5",
-        "fg": "#1c1c1c", "cyan": "#0f7fa0", "dim": "#8a8a8a",
+        "bg": "#ffffff", "border": "#e2e2e2",
+        "fg": "#1c1c1c", "cyan": "#0088ad",
+        "add": "#1a7f37", "del": "#cf222e",
     },
 }
 
@@ -115,6 +115,25 @@ query($login:String!){
   }
 }"""
 
+CONTRIB_Q = """
+query($login:String!){
+  user(login:$login){
+    repositoriesContributedTo(includeUserRepositories:true,
+      contributionTypes:[COMMIT, PULL_REQUEST, ISSUE, PULL_REQUEST_REVIEW]){
+      totalCount
+    }
+  }
+}"""
+
+# The contribution calendar total matches what my GitHub profile shows and
+# includes private contributions, but never their type. So I take that total,
+# count PRs / issues / reviews (public and private) through search, and back out
+# commits as the remainder — the only way to reach a private commit count, and
+# it keeps the breakdown summing to the number on my profile.
+CALENDAR_Q = ("query($login:String!){ user(login:$login){"
+              " contributionsCollection{ contributionCalendar{ totalContributions } } } }")
+SEARCH_Q = "query($q:String!){ search(query:$q, type:ISSUE){ issueCount } }"
+
 HISTORY_Q = """
 query($owner:String!, $name:String!, $id:ID!, $after:String){
   repository(owner:$owner, name:$name){
@@ -132,6 +151,22 @@ def cache_key(owner, name):
     return hashlib.sha256(f"{owner}/{name}".encode()).hexdigest()[:16]
 
 
+def _search_count(token, q):
+    return query(token, SEARCH_Q, q=q)["search"]["issueCount"]
+
+
+def contributions_breakdown(token):
+    """Contribution total (matches my profile) split by type, public + private."""
+    total = query(token, CALENDAR_Q, login=LOGIN)[
+        "user"]["contributionsCollection"]["contributionCalendar"]["totalContributions"]
+    prs = _search_count(token, f"author:{LOGIN} is:pr")
+    issues = _search_count(token, f"author:{LOGIN} is:issue")
+    reviews = _search_count(token, f"reviewed-by:{LOGIN} is:pr")
+    commits = max(0, total - prs - issues - reviews)
+    return {"total": total, "commits": commits, "prs": prs, "issues": issues,
+            "reviews": reviews}
+
+
 def fetch(token):
     """Commit/LOC totals for every non-fork repo I am affiliated with.
 
@@ -142,6 +177,9 @@ def fetch(token):
     user_id = query(token, "query($login:String!){user(login:$login){id}}",
                     login=LOGIN)["user"]["id"]
     owned = query(token, OWNED_Q, login=LOGIN)["user"]["repositories"]["totalCount"]
+    contributed = query(token, CONTRIB_Q, login=LOGIN)[
+        "user"]["repositoriesContributedTo"]["totalCount"]
+    contributions = contributions_breakdown(token)
 
     repos, after = [], None
     while True:
@@ -184,46 +222,68 @@ def fetch(token):
 
     return {
         "repos": owned,
-        "commits": sum(r["commits"] for r in fresh.values()),
+        "contributed": contributed,
+        "contributions": contributions,
         "adds": sum(r["adds"] for r in fresh.values()),
         "dels": sum(r["dels"] for r in fresh.values()),
     }
 
 
+def _kv(key, value):
+    """`key: value`, left-packed, exactly as my neofetch prints it."""
+    return [(key, "cyan"), (":", "cyan"), (f" {value}", "fg")]
+
+
+def _loc(added, deleted):
+    net = added - deleted
+    return [("Lines of Code", "cyan"), (":", "cyan"), (f" {net:,} (", "fg"),
+            (f"{added:,}++", "add"), (", ", "fg"), (f"{deleted:,}--", "del"),
+            (")", "fg")]
+
+
+def _title(name):
+    """Section label — a plain heading, no rule."""
+    return [(name, "cyan")]
+
+
+def _repos(owned, contributed):
+    return [("Repos", "cyan"), (":", "cyan"), (f" {owned:,} ", "fg"),
+            ("(", "fg"), ("Contributed", "cyan"), (":", "cyan"),
+            (f" {contributed:,}", "fg"), (")", "fg")]
+
+
+def _indent(key, value):
+    """A key/value nested one level under its parent line."""
+    return [("  " + key, "cyan"), (":", "cyan"), (f" {value:,}", "fg")]
+
+
 def info_lines(stats, today):
-    n = lambda v: f"{v:,}"
-    loc = stats["adds"] - stats["dels"]
+    c = stats["contributions"]
+    body = [
+        _kv("OS", "aaaOS arm64"),
+        _kv("Host", "aaangelmartin.com"),
+        _kv("Uptime", uptime(today)),
+        _kv("Shell", "zsh aaa"),
+        _kv("Terminal", "terminaaal"),
+        _kv("Terminal Font", "aaa Mono Nerd Font"),
+        _kv("CPU", "aaa Pro"),
+        _kv("GPU", "aaa Pro"),
+        [],
+        _title("GitHub Stats"),
+        _repos(stats["repos"], stats["contributed"]),
+        _kv("Contributions", f"{c['total']:,}"),
+        _indent("Commits", c["commits"]),
+        _indent("PRs", c["prs"]),
+        _indent("Issues", c["issues"]),
+        _indent("Reviews", c["reviews"]),
+        _loc(stats["adds"], stats["dels"]),
+    ]
+    # U+2500 joins across cells into one unbroken rule (a row of "-" leaves gaps),
+    # spanning the info column to the right edge of the 80-col terminal.
     return [
-        [("aaangel", "cyan"), ("@", "fg"), ("laaabs", "cyan")],
-        [("-" * UNDERLINE, "fg")],
-        *[[(k, "cyan"), (":", "cyan"), (f" {v}", "fg")] for k, v in [
-            ("OS", "macOS 26.0.1 arm64"),
-            ("Host", "laaabs."),
-            ("Kernel", "computer science @ uc3m"),
-            ("Uptime", uptime(today)),
-            ("Shell", "zsh 5.9"),
-            ("Terminal", "Apple_Terminal"),
-            ("Terminal Font", "SF Mono Nerd Font"),
-            ("CPU", "Apple M4 Pro"),
-            ("GPU", "Apple M4 Pro"),
-        ]],
-        [],
-        *[[(k, "cyan"), (":", "cyan"), (f" {v}", "fg")] for k, v in [
-            ("Languages.Programming", "TypeScript, Python, Go, JavaScript"),
-            ("Languages.Real", "Spanish, English"),
-        ]],
-        [],
-        *[[(k, "cyan"), (":", "cyan"), (f" {v}", "fg")] for k, v in [
-            ("Location", "Madrid, Spain"),
-            ("Web", "aaangelmartin.com"),
-            ("Twitter", "@aaangelmartin_"),
-            ("Email", "hello@aaangelmartin.com"),
-        ]],
-        [],
-        [("Repos", "cyan"), (":", "cyan"), (f" {n(stats['repos'])}", "fg")],
-        [("Commits", "cyan"), (":", "cyan"), (f" {n(stats['commits'])}", "fg")],
-        [("Lines of Code", "cyan"), (":", "cyan"), (f" {n(loc)}", "fg"),
-         (f"  ({n(stats['adds'])}++, {n(stats['dels'])}--)", "dim")],
+        [("angel", "cyan"), ("@", "fg"), ("aaangelmartin.com", "cyan")],
+        [("─" * (TERM_COLS - INFO_COL), "fg")],
+        *body,
     ]
 
 
@@ -240,21 +300,19 @@ def render(theme, stats, today):
     font = base64.b64encode(FONT.read_bytes()).decode()
     info = info_lines(stats, today)
 
-    rows = [spans(PROMPT + [(" neofetch", "fg")], 0, 0)]
-    rows += [spans([(line, "cyan")], 0, 2 + i) for i, line in enumerate(ASCII_ART)]
-    rows += [spans(runs, INFO_COL, 2 + i) for i, runs in enumerate(info) if runs]
+    art_cols = max(len(line) for line in ASCII_ART)
+    # Centre the art in its column: vertically against the info block, and
+    # horizontally in the gutter to the left of the info column. Kept fractional
+    # so the art lands exactly on the block's midpoint, not a rounded row.
+    art_off = max(0, (len(info) - len(ASCII_ART)) / 2)
+    art_x = (INFO_COL - art_cols) / 2
+    rows = [spans([(line, "cyan")], art_x, art_off + i)
+            for i, line in enumerate(ASCII_ART)]
+    rows += [spans(runs, INFO_COL, i) for i, runs in enumerate(info) if runs]
 
-    last = 2 + len(info) + 1
-    rows.append(spans(PROMPT, 0, last))
-    cursor_x = PAD_X + (sum(len(t) for t, _ in PROMPT) + 1) * CHAR_W
-    cursor_y = FIRST_BASELINE + last * LINE_H - FONT_SIZE + 2
-
-    width = round(PAD_X * 2 + (INFO_COL + UNDERLINE) * CHAR_W)
-    height = FIRST_BASELINE + last * LINE_H + LINE_H
-
-    lights = "".join(
-        f'<circle cx="{22 + i * 20}" cy="{TITLEBAR_H / 2}" r="6" fill="{c}"/>'
-        for i, c in enumerate(("#ff5f57", "#febc2e", "#28c840")))
+    n_rows = max(len(info), art_off + len(ASCII_ART))
+    width = round(PAD_X * 2 + TERM_COLS * CHAR_W)
+    height = round(PAD_Y * 2 + (n_rows - 1) * LINE_H + FONT_SIZE)
 
     return f'''<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="{width}px" height="{height}px"
@@ -274,17 +332,11 @@ text {{ font-family: 'sfmono', 'dejavu', monospace; }}
 text, tspan {{ white-space: pre; }}
 .fg {{ fill: {theme['fg']}; }}
 .cyan {{ fill: {theme['cyan']}; }}
-.dim {{ fill: {theme['dim']}; }}
+.add {{ fill: {theme['add']}; }}
+.del {{ fill: {theme['del']}; }}
 </style>
-<rect width="{width}" height="{height}" rx="10" fill="{theme['bg']}"
+<rect width="{width}" height="{height}" rx="14" fill="{theme['bg']}"
       stroke="{theme['border']}"/>
-<path d="M0 {TITLEBAR_H}h{width}M10 0h{width - 20}a10 10 0 0 1 10 10v{TITLEBAR_H - 10}H0V10a10 10 0 0 1 10-10z"
-      fill="{theme['titlebar']}" stroke="{theme['border']}"/>
-{lights}
-<text x="{width / 2}" y="{TITLEBAR_H / 2 + 4}" text-anchor="middle" font-size="12px"
-      class="dim">aaangel@laaabs — aaangelmartin — zsh</text>
-<rect x="{cursor_x:.2f}" y="{cursor_y}" width="{CHAR_W:.2f}" height="{FONT_SIZE}"
-      fill="{theme['cyan']}"/>
 <text>
 {chr(10).join(rows)}
 </text>
@@ -293,14 +345,15 @@ text, tspan {{ white-space: pre; }}
 
 
 def main():
-    # A PAT with repo + read:org: the Action's built-in GITHUB_TOKEN sees
-    # neither private repos nor org repos, which is where most of the code is.
+    # A personal access token that can read my private repos and org membership;
+    # the Action's built-in GITHUB_TOKEN sees neither, which is where most of the
+    # code and contributions live.
     token = os.environ.get("ACCESS_TOKEN") or os.environ.get("GH_TOKEN")
     if not token:
-        sys.exit("set ACCESS_TOKEN to a PAT with repo + read:org scopes")
+        sys.exit("set ACCESS_TOKEN to a token that can read private repos")
     today = date.today()
     stats = fetch(token)
-    print(f"repos={stats['repos']} commits={stats['commits']} "
+    print(f"repos={stats['repos']} contributions={stats['contributions']['total']} "
           f"loc={stats['adds'] - stats['dels']:,}", file=sys.stderr)
     for filename, theme in THEMES.items():
         (ROOT / filename).write_text(render(theme, stats, today))
